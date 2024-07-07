@@ -39,9 +39,18 @@ jobs:
         ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
         nohup ./ngrok tcp 3389 &
 
+    - name: Wait for ngrok to establish the tunnel
+      run: |
+        for i in {1..10}; do
+          if curl --silent --show-error http://127.0.0.1:4040/api/tunnels; then
+            break
+          fi
+          echo "Waiting for ngrok to start..."
+          sleep 10
+        done
+
     - name: Get ngrok public URL
       run: |
-        sleep 30  # Wait for ngrok to establish the tunnel
         curl --silent --show-error http://127.0.0.1:4040/api/tunnels | sed -nE 's/.*public_url":"tcp:..([^"]*).*/\1/p'
 
     - name: Keep the workflow running for 6 hours
