@@ -1,23 +1,31 @@
-# Use the official Windows Server Core image
+# Use the official Windows Server Core 2019 image
 FROM mcr.microsoft.com/windows/servercore:ltsc2019
 
-# Set environment variables
-ENV NGROK_URL=https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+# Install Chocolatey package manager
+RUN powershell -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command \
+    Set-ExecutionPolicy Bypass -Scope Process -Force; \
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
+    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
-# Install necessary tools
+# Install ngrok
+RUN choco install ngrok -y
+
+# Install and enable RDP
 RUN powershell -Command \
-    Invoke-WebRequest -Uri $env:NGROK_URL -OutFile ngrok.tgz; \
-    tar -xzf ngrok.tgz -C C:\; \
-    Remove-Item -Force ngrok.tgz
+    Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0; \
+    Enable-NetFirewallRule -DisplayGroup 'Remote Desktop'; \
+    Add-WindowsFeature -Name RDS-RD-Server
 
-# Copy ngrok authtoken script
-COPY ngrok_authtoken.ps1 C:\ngrok_authtoken.ps1
+# Download and extract ngrok
+RUN powershell -Command \
+    Invoke-WebRequest -Uri https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -OutFile ngrok.tgz; \
+    tar -xvf ngrok.tgz -C C:\ngrok
 
-# Expose RDP port
+# Add a script to start ngrok and keep the container running
+COPY start.ps1 C:\start.ps1
+
+# Expose the RDP port
 EXPOSE 3389
 
-# Start ngrok and RDP
-CMD powershell -Command \
-    Start-Process -NoNewWindow -FilePath C:\ngrok.exe -ArgumentList 'tcp 3389'; \
-    Start-Process -NoNewWindow -FilePath C:\ngrok_authtoken.ps1; \
-    while ($true) { Start-Sleep -Seconds 36000 }
+# Set the entrypoint to the start script
+ENTRYPOINT ["powershell", "C:\\start.ps1"]
