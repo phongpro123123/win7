@@ -16,23 +16,12 @@ jobs:
     - name: Login to DockerHub
       run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-    - name: Install pwgen
-      run: sudo apt-get update && sudo apt-get install -y pwgen
-
-    - name: Generate random username and password
-      id: creds
-      run: |
-        USERNAME=prophong024
-        PASSWORD=$(pwgen -s 12 1)
-        echo "USERNAME=$USERNAME" >> $GITHUB_ENV
-        echo "PASSWORD=$PASSWORD" >> $GITHUB_ENV
-
     - name: Build and run Windows 7 Docker container
       run: |
         docker pull mywindows7image:latest
         docker run -d --name win7 -p 3389:3389 mywindows7image:latest
-        docker exec win7 net user ${{ env.USERNAME }} ${{ env.PASSWORD }} /add
-        docker exec win7 net localgroup administrators ${{ env.USERNAME }} /add
+        docker exec win7 net user prophong024 123456abcZ /add
+        docker exec win7 net localgroup administrators prophong024 /add
 
     - name: Download and set up ngrok
       run: |
@@ -50,8 +39,8 @@ jobs:
 
     - name: Output credentials
       run: |
-        echo "Username: ${{ env.USERNAME }}"
-        echo "Password: ${{ env.PASSWORD }}"
+        echo "Username: prophong024"
+        echo "Password: 123456abcZ"
 
     - name: Keep the session alive
       run: sleep 43200
