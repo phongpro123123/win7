@@ -1,0 +1,39 @@
+name: Windows 7 RDP with Docker and ngrok
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Login to DockerHub
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    - name: Build and run Windows 7 Docker container
+      run: |
+        docker pull mywindows7image:latest
+        docker run -d --name win7 -p 3389:3389 mywindows7image:latest
+
+    - name: Download and set up ngrok
+      run: |
+        wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
+        unzip ngrok-stable-linux-amd64.zip
+        ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        nohup ./ngrok tcp 3389 &
+
+    - name: Wait for ngrok to establish the tunnel
+      run: sleep 120
+
+    - name: Get ngrok public URL
+      run: |
+        curl --silent --show-error http://127.0.0.1:4040/api/tunnels | sed -nE 's/.*public_url":"tcp:..([^"]*).*/\1/p'
+
+    - name: Keep the session alive
+      run: sleep 43200
