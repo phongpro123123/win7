@@ -1,47 +1,49 @@
-name: Windows Server RDP with Docker and ngrok
+name: Ubuntu Desktop RDP
 
 on: push
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
     - name: Login to DockerHub
-      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Clean up any existing containers
+    - name: Build and push Docker image
       run: |
-        docker rm -f winserver || true
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/ubuntu-desktop:latest .
+        docker push ${{ secrets.DOCKER_USERNAME }}/ubuntu-desktop:latest
 
-    - name: Clean up any existing networks
+    - name: Run Docker container
       run: |
-        docker network prune -f
+        docker run -d --name ubuntu-desktop -p 3389:3389 ${{ secrets.DOCKER_USERNAME }}/ubuntu-desktop:latest
+        sleep 30  # Wait for the container to be fully up
 
-    - name: Pull and run Windows Server Docker container
+    - name: Download ngrok
       run: |
-        docker pull mcr.microsoft.com/windows/servercore:ltsc2019
-        docker run -d --name winserver -p 3389:3389 mcr.microsoft.com/windows/servercore:ltsc2019
-        docker exec winserver powershell -Command "Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0"
-        docker exec winserver powershell -Command "Enable-NetFirewallRule -DisplayGroup 'Remote Desktop'"
+        wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
+        unzip ngrok-stable-linux-amd64.zip
 
-    - name: Download and set up ngrok
+    - name: Start ngrok
       run: |
-        curl -o ngrok.zip https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-windows-amd64.zip
-        tar -xf ngrok.zip
         ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-        Start-Process -NoNewWindow -FilePath ./ngrok -ArgumentList "tcp 3389"
-
-    - name: Wait for ngrok to establish the tunnel
-      run: Start-Sleep -Seconds 120
+        nohup ./ngrok tcp 3389 &
 
     - name: Get ngrok public URL
       run: |
-        $url = Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels
-        $url.tunnels[0].public_url
+        sleep 30  # Wait for ngrok to establish the tunnel
+        curl --silent --show-error http://127.0.0.1:4040/api/tunnels | sed -nE 's/.*public_url":"tcp:..([^"]*).*/\1/p'
 
-    - name: Keep the session alive
-      run: Start-Sleep -Seconds 43200
+    - name: Keep the workflow running for 6 hours
+      run: |
+        sleep 21600  # Sleep for 6 hours (21600 seconds)
