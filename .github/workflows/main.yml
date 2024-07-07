@@ -20,14 +20,12 @@ jobs:
       run: |
         docker pull mywindows7image:latest
         docker run -d --name win7 -p 3389:3389 mywindows7image:latest
-        docker exec win7 net user prophong024 123456abcZ /add
-        docker exec win7 net localgroup administrators prophong024 /add
 
     - name: Download and set up ngrok
       run: |
         wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
         unzip ngrok-stable-linux-amd64.zip
-        ./ngrok authtoken 2Nvl9INkYFRfl3uLSf3sU7PaAAL_4yoNusPRs3YbTpqcyuEdr
+        ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
         nohup ./ngrok tcp 3389 &
 
     - name: Wait for ngrok to establish the tunnel
@@ -36,11 +34,6 @@ jobs:
     - name: Get ngrok public URL
       run: |
         curl --silent --show-error http://127.0.0.1:4040/api/tunnels | sed -nE 's/.*public_url":"tcp:..([^"]*).*/\1/p'
-
-    - name: Output credentials
-      run: |
-        echo "Username: prophong024"
-        echo "Password: 123456abcZ"
 
     - name: Keep the session alive
       run: sleep 43200
