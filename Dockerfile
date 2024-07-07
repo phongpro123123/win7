@@ -1,6 +1,10 @@
 # Use the official Ubuntu base image
 FROM ubuntu:20.04
 
+# Set environment variables to skip interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
 # Install necessary packages
 RUN apt-get update && apt-get install -y \
     xfce4 \
